@@ -1,0 +1,99 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum GameStatus {
+  WAITING_FOR_IMAGE
+  WAITING_FOR_CAPTION
+  REVEALED
+  FAILED
+}
+
+enum RoundStatus {
+  PENDING_IMAGE
+  READY_FOR_CAPTION
+  COMPLETED
+  FAILED
+}
+
+enum RoundKind {
+  PROMPT
+  CAPTION
+}
+
+enum JobType {
+  GENERATE_IMAGE
+}
+
+enum JobStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+model Game {
+  id           String      @id @default(cuid())
+  status       GameStatus
+  roundCount   Int
+  currentRound Int         @default(0)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  rounds Round[]
+  jobs   Job[]
+  votes  Vote[]
+}
+
+model Round {
+  id          String      @id @default(cuid())
+  gameId      String
+  game        Game        @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  index       Int
+  kind        RoundKind
+  status      RoundStatus
+  inputText   String
+  imagePath   String?
+  submittedBy String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  jobs Job[]
+
+  @@unique([gameId, index])
+}
+
+model Job {
+  id         String    @id @default(cuid())
+  gameId     String
+  game       Game      @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  roundId    String
+  round      Round     @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  type       JobType
+  status     JobStatus
+  payload    String
+  result     String?
+  error      String?
+  attempts   Int       @default(0)
+  createdAt  DateTime  @default(now())
+  startedAt  DateTime?
+  finishedAt DateTime?
+
+  @@index([status, createdAt])
+}
+
+model Vote {
+  id            String   @id @default(cuid())
+  gameId        String
+  game          Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  voterKey      String
+  targetRoundId String
+  createdAt     DateTime @default(now())
+
+  @@unique([gameId, voterKey])
+}
